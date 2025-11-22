@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Safe Profile Agency</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-900">
+
+  <!-- Header -->
+  <header class="bg-blue-600 text-white p-6 text-center">
+    <h1 class="text-3xl font-bold">Safe Profile Agency</h1>
+    <p class="mt-2">Professional Services & Gaming Expertise</p>
+  </header>
+
+  <!-- About / Bio Section -->
+  <section id="about" class="p-6 max-w-4xl mx-auto">
+    <h2 class="text-2xl font-semibold mb-4">About Me</h2>
+    <div id="bioContent" class="bg-white p-4 rounded shadow">Loading bio...</div>
+    <div id="bioGallery" class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4"></div>
+  </section>
+
+  <!-- Services Section -->
+  <section id="services" class="p-6 max-w-6xl mx-auto">
+    <h2 class="text-2xl font-semibold mb-4">Services & Products</h2>
+    <div id="servicesContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+  </section>
+
+  <!-- Contact Section -->
+  <section id="contact" class="p-6 text-center">
+    <h2 class="text-2xl font-semibold mb-4">Contact Me</h2>
+    <a href="https://wa.me/8801607563463" target="_blank" class="bg-green-500 text-white px-6 py-3 rounded font-bold hover:bg-green-600 transition">Message on WhatsApp</a>
+  </section>
+
+  <!-- Admin Login Modal -->
+  <div id="adminLogin" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+    <div class="bg-white p-6 rounded shadow w-96">
+      <h2 class="text-xl font-bold mb-4">Admin Login</h2>
+      <input type="email" id="adminEmail" placeholder="Email" class="border p-2 w-full mb-3 rounded">
+      <input type="password" id="adminPassword" placeholder="Password" class="border p-2 w-full mb-3 rounded">
+      <button id="loginBtn" class="bg-blue-600 text-white px-4 py-2 rounded w-full">Login</button>
+      <button id="closeLogin" class="mt-2 text-gray-600 underline w-full">Cancel</button>
+      <div id="loginError" class="text-red-500 mt-2"></div>
+    </div>
+  </div>
+
+  <!-- Admin Panel Modal -->
+  <div id="adminPanel" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden overflow-auto">
+    <div class="bg-white p-6 rounded shadow w-11/12 max-w-4xl">
+      <h2 class="text-xl font-bold mb-4">Admin Panel</h2>
+      <button id="closeAdminPanel" class="text-gray-600 underline mb-4">Close</button>
+
+      <!-- Tabs -->
+      <div class="flex gap-4 mb-4">
+        <button class="tabBtn bg-blue-600 text-white px-3 py-1 rounded" data-tab="bioTab">Bio</button>
+        <button class="tabBtn bg-gray-200 px-3 py-1 rounded" data-tab="servicesTab">Services</button>
+      </div>
+
+      <!-- Bio Tab -->
+      <div id="bioTab" class="tabContent">
+        <textarea id="adminBioText" rows="4" class="w-full border p-2 mb-2" placeholder="Write your bio"></textarea>
+        <input type="file" id="adminBioImages" multiple class="mb-2">
+        <button id="saveBio" class="bg-green-500 text-white px-4 py-2 rounded">Save Bio</button>
+      </div>
+
+      <!-- Services Tab -->
+      <div id="servicesTab" class="tabContent hidden">
+        <input type="text" id="serviceName" placeholder="Service Name" class="border p-2 w-full mb-2">
+        <textarea id="serviceDesc" placeholder="Service Description" class="border p-2 w-full mb-2"></textarea>
+        <input type="number" id="servicePrice" placeholder="Price" class="border p-2 w-full mb-2">
+        <input type="file" id="serviceImage" class="mb-2">
+        <button id="addService" class="bg-green-500 text-white px-4 py-2 rounded">Add Service</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Button -->
+  <button id="openAdmin" class="fixed bottom-4 right-4 bg-blue-600 text-white px-4 py-2 rounded shadow-lg hover:bg-blue-700">Admin</button>
+
+  <script>
+    // Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBUVu43fpW9e89fTMUDxHTyDWmlIkq_Y2M",
+      authDomain: "profile-safe-agency.firebaseapp.com",
+      projectId: "profile-safe-agency",
+      storageBucket: "profile-safe-agency.appspot.com",
+      messagingSenderId: "182980486686",
+      appId: "1:182980486686:web:e5d3fedfda04c9bfee700f",
+      measurementId: "G-YCNX5L0MRR"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    const storage = firebase.storage();
+
+    // Elements
+    const bioContent = document.getElementById('bioContent');
+    const bioGallery = document.getElementById('bioGallery');
+    const servicesContainer = document.getElementById('servicesContainer');
+
+    // Load Bio
+    function loadBio(){
+      db.collection('bio').doc('main').get().then(doc => {
+        if(doc.exists){
+          const data = doc.data();
+          bioContent.textContent = data.text;
+          bioGallery.innerHTML = '';
+          data.images?.forEach(url => {
+            const img = document.createElement('img');
+            img.src = url;
+            img.className = 'rounded shadow w-full';
+            bioGallery.appendChild(img);
+          });
+        } else {
+          bioContent.textContent = 'Bio not found.';
+        }
+      });
+    }
+    loadBio();
+
+    // Load Services
+    function loadServices(){
+      servicesContainer.innerHTML = '';
+      db.collection('services').get().then(snapshot => {
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const card = document.createElement('div');
+          card.className = 'bg-white rounded shadow p-4 hover:shadow-lg transition';
+          card.innerHTML = `<h3 class='font-bold text-lg mb-2'>${data.name}</h3>
+                            <img src='${data.image}' class='w-full rounded mb-2'/>
+                            <p class='mb-2'>${data.description}</p>
+                            <p class='font-bold mb-2'>৳${data.price}</p>
+                            <a href='https://wa.me/8801607563463' target='_blank' class='bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition'>Contact</a>`;
+          servicesContainer.appendChild(card);
+        });
+      });
+    }
+    loadServices();
+
+    // Admin Login
+    const adminLogin = document.getElementById('adminLogin');
+    const adminPanel = document.getElementById('adminPanel');
+    const openAdmin = document.getElementById('openAdmin');
+    const closeLogin = document.getElementById('closeLogin');
+    const loginBtn = document.getElementById('loginBtn');
+    const loginError = document.getElementById('loginError');
+    const closeAdminPanel = document.getElementById('closeAdminPanel');
+
+    openAdmin.addEventListener('click', ()=>{ adminLogin.classList.remove('hidden'); });
+    closeLogin.addEventListener('click', ()=>{ adminLogin.classList.add('hidden'); loginError.textContent=''; });
+
+    loginBtn.addEventListener('click', ()=>{
+      const email = document.getElementById('adminEmail').value;
+      const password = document.getElementById('adminPassword').value;
+      auth.signInWithEmailAndPassword(email,password)
+        .then(()=>{
+          adminLogin.classList.add('hidden');
+          adminPanel.classList.remove('hidden');
+        })
+        .catch(err=>{ loginError.textContent = err.message; });
+    });
+
+    closeAdminPanel.addEventListener('click', ()=>{ adminPanel.classList.add('hidden'); });
+
+    // Tabs
+    document.querySelectorAll('.tabBtn').forEach(btn => {
+      btn.addEventListener('click', ()=>{
+        document.querySelectorAll('.tabBtn').forEach(b=>b.classList.remove('bg-blue-600','text-white')); 
+        document.querySelectorAll('.tabBtn').forEach(b=>b.classList.add('bg-gray-200')); 
+        btn.classList.add('bg-blue-600','text-white'); btn.classList.remove('bg-gray-200');
+        document.querySelectorAll('.tabContent').forEach(tab=>tab.classList.add('hidden'));
+        document.getElementById(btn.dataset.tab).classList.remove('hidden');
+      });
+    });
+
+    // Save Bio
+    document.getElementById('saveBio').addEventListener('click', async ()=>{
+      const text = document.getElementById('adminBioText').value;
+      const files = document.getElementById('adminBioImages').files;
+      let urls = [];
+      for(const file of files){
+        const ref = storage.ref(`bio/${file.name}`);
+        await ref.put(file);
+        const url = await ref.getDownloadURL();
+        urls.push(url);
+      }
+      await db.collection('bio').doc('main').set({text, images: urls});
+      loadBio();
+      alert('Bio updated');
+    });
+
+    // Add Service
+    document.getElementById('addService').addEventListener('click', async ()=>{
+      const name = document.getElementById('serviceName').value;
+      const desc = document.getElementById('serviceDesc').value;
+      const price = parseInt(document.getElementById('servicePrice').value);
+      const file = document.getElementById('serviceImage').files[0];
+      if(!file) return alert('Upload service image');
+      const ref = storage.ref(`services/${file.name}`);
+      await ref.put(file);
+      const url = await ref.getDownloadURL();
+      await db.collection('services').add({name, description: desc, price, image: url});
+      loadServices();
+      alert('Service added');
+    });
+
+  </script>
+</body>
+</html>
